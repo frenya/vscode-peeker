@@ -3,7 +3,7 @@
   "displayName": "Peeker",
   "description": "Instantly look up selected text on the web using a predefined url template",
   "icon": "resources/logo/icon.png",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "engines": {
     "vscode": "^1.52.0"
   },
@@ -23,6 +23,16 @@
     "type": "git",
     "url": "https://github.com/frenya/vscode-peeker"
   },
+  "keywords": [
+    "vscode",
+    "extension",
+    "web",
+    "lookup",
+    "web lookup",
+    "selection",
+    "selected text",
+    "productivity"
+  ],
   "contributes": {
     "configuration": {
       "type": "object",
@@ -51,7 +61,9 @@
     "test-watch": "tsc -watch -p ./",
     "pretest": "npm run test-compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "public-merge": "~/bin/git_public_merge.sh v$npm_package_version",
+    "public-push": "~/bin/git_public_push.sh v$npm_package_version"
   },
   "devDependencies": {
     "@types/glob": "^7.1.3",
