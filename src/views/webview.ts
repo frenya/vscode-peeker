@@ -10,8 +10,10 @@ import Config, { myExtension } from '../config';
 
 let panel: vscode.WebviewPanel | undefined;
 let listeners: vscode.Disposable[] = [];
+let openInBrowser: vscode.Disposable;
+let currentUrl: string | undefined;
 
-export async function open (context: vscode.ExtensionContext) {
+export async function open (context: vscode.ExtensionContext, editor: vscode.TextEditor | undefined) {
 
   // Only allow one instance to exist
   // see https://code.visualstudio.com/api/extension-guides/webview#visibility-and-moving
@@ -40,26 +42,31 @@ export async function open (context: vscode.ExtensionContext) {
       enableCommandUris: false,
     }
   );
+  rerender(editor);
+
+  if (!openInBrowser) {
+    openInBrowser = vscode.commands.registerCommand('peeker.openInBrowser', () => {
+      if (currentUrl) vscode.commands.executeCommand('vscode.open', vscode.Uri.parse(currentUrl));
+    });
+  }
+
+  setPeekerFocused(true);
+  panel.onDidChangeViewState(e => setPeekerFocused(e.webviewPanel.active));
 
   vscode.window.onDidChangeActiveTextEditor((editor) => {
-    if (editor) rerender();
+    if (editor) rerender(editor);
   }, null, listeners);
 
-  vscode.window.onDidChangeTextEditorSelection(({ selections }) => {
-    if (selections[0] && !selections[0].isEmpty) rerender();
+  vscode.window.onDidChangeTextEditorSelection(async ({ selections, textEditor }) => {
+    if (textEditor && selections[0] && !selections[0].isEmpty) await rerender(textEditor);
   }, null, listeners);
   
   vscode.workspace.onDidChangeConfiguration((event: vscode.ConfigurationChangeEvent) => {
-    if (event.affectsConfiguration(`${myExtension}.template`)) rerender();
+    if (event.affectsConfiguration(`${myExtension}.template`)) rerender(vscode.window.activeTextEditor);
   }, null, listeners);
   context.subscriptions.push(...listeners);
 
-
-  async function lookup () {
-    // TODO: Show loading message
-    if (panel) panel.webview.html = fallbackContent('Loading ...');
-
-    const editor = vscode.window.activeTextEditor;
+  async function lookup (editor: vscode.TextEditor | undefined) {
     if (!editor || editor.selection.isEmpty) return fallbackContent('No text is selected in the active editor. Please select some.');;
 
     const sel = editor.selection;
@@ -68,16 +75,23 @@ export async function open (context: vscode.ExtensionContext) {
     const template = Config(editor.document.uri).template;
     if (!template) return fallbackContent('No url template available in settings. See README for instructions on how to configure it.');
 
-    return axios.get(template.replace('%s', encodeURIComponent(text)))
-      .then(res => res.data)
-      .catch(console.error);
+    const url = template.replace('%s', encodeURIComponent(text));
 
+    if (url && (url !== currentUrl)) {
+      if (panel) panel.webview.html = fallbackContent('Loading ...');
+
+      currentUrl = url;
+      return axios.get(url)
+        .then(res => res.data)
+        .catch(e => { console.error(e); return fallbackContent('No content available'); });
+        // .catch(error => fallbackContent(error));
+    }
   }
 
-  async function rerender () {
+  async function rerender (editor: vscode.TextEditor | undefined) {
     if (panel) {
-      const content = await lookup();
-      panel.webview.html = content || fallbackContent('No content available');
+      const content = await lookup(editor);
+      if (content) panel.webview.html = content;
     }
   }
 
@@ -85,10 +99,14 @@ export async function open (context: vscode.ExtensionContext) {
     return msg;
   }
 
+  function setPeekerFocused(value: boolean) {
+		vscode.commands.executeCommand('setContext', 'peeker-focused', value);
+  }
+  
   panel.onDidDispose(
     () => {
-      listeners.forEach(disposable => disposable.dispose());
       panel = undefined;
+      listeners.forEach(disposable => disposable.dispose());
     },
     null,
     context.subscriptions

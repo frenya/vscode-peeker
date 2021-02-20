@@ -3,7 +3,7 @@
   "displayName": "Peeker",
   "description": "Instantly look up selected text on the web using a predefined url template",
   "icon": "resources/logo/icon.png",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "engines": {
     "vscode": "^1.52.0"
   },
@@ -48,9 +48,29 @@
     "commands": [
       {
         "command": "peeker.show",
-        "title": "Open Peeker"
+        "title": "Peeker: Look up on the web"
+      },
+      {
+        "command": "peeker.openInBrowser",
+        "title": "Open in browser"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorHasSelection",
+          "command": "peeker.show",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "when": "peeker-focused == true",
+          "command": "peeker.openInBrowser",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
